@@ -1,9 +1,8 @@
-const { post } = require('request');
 const Disqus = require('../libs/neo-disqus')
 
 class Bot {
     constructor() {
-        this.forums = ['buque-esquizo']
+        this.forums = JSON.parse(process.env.FORUMS)
     }
     subscribe() {
         this.client = new Disqus({
@@ -18,8 +17,8 @@ class Bot {
             this.client.get('forums/listThreads', params, (e, lastThreads) => {
                 if (e) return console.error(e)
 
-                const id = lastThreads.response[0].id
-                const stream = this.client.stream(`thread/${id}`)
+                const threadId = lastThreads.response[0].id
+                const stream = this.client.stream(`thread/${threadId}`)
 
                 stream.on('open', () => { console.log('connected') })
 
@@ -28,10 +27,8 @@ class Bot {
                         message = JSON.parse(message)
                         if (message.message_type == 'Post') {
                             const postId = message.message_body.id
-                            const content = message.message_body.post.message.replace(/(<([^>]+)>)/gi, "")
-                            if (content.includes(this.command)) {
-                                this.reply(id, postId);
-                            }
+                            const postContent = message.message_body.post.message.replace(/(<([^>]+)>)/gi, "")
+                            this.reply(threadId, postId, postContent);
                             // this.upVote(postId);
                         }
 
@@ -49,16 +46,18 @@ class Bot {
         });
     }
 
-    reply(threadId, parentMessage) {
-        let messageContent = this.messages[Math.floor(Math.random() * this.messages.length)];
-        const params = { 'message': messageContent, thread: threadId, parent: parentMessage }
-        this.client.post('posts/create', params, (e, response) => {
-            if (e && e.statusCode == 400) {
-                const params = { 'message': messageContent + " <b>", thread: threadId, parent: parentMessage }
-                this.client.post('posts/create', params, (e, response) => {
-                });
-            }
-        });
+    reply(threadId, parentMessageId, parentMessageContent) {
+        if (parentMessageContent.includes(this.command)) {
+            let messageContent = this.messages[Math.floor(Math.random() * this.messages.length)];
+            const params = { 'message': messageContent, thread: threadId, parent: parentMessageId }
+            this.client.post('posts/create', params, (e, response) => {
+                if (e && e.statusCode == 400) {
+                    const params = { 'message': messageContent + " <b>", thread: threadId, parent: parentMessageId }
+                    this.client.post('posts/create', params, (e, response) => {
+                    });
+                }
+            });
+        }
     }
 }
 module.exports = Bot;
