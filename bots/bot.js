@@ -26,9 +26,7 @@ class Bot {
                     try {
                         message = JSON.parse(message)
                         if (message.message_type == 'Post') {
-                            const postId = message.message_body.id
-                            const postContent = message.message_body.post.message.replace(/(<([^>]+)>)/gi, "")
-                            this.reply(threadId, postId, postContent);
+                            this.reply(threadId, message.message_body);
                             // this.upVote(postId);
                         }
 
@@ -39,20 +37,22 @@ class Bot {
             })
         });
     }
-
     upVote(postId) {
         const params = { vote: 1, post: postId }
         this.client.post('posts/vote', params, (e, response) => {
         });
     }
 
-    reply(threadId, parentMessageId, parentMessageContent) {
-        if (parentMessageContent.includes(this.command)) {
+    reply(threadId, parentPost) {
+        const parentPostContent = parentPost.post.message.replace(/(<([^>]+)>)/gi, "")
+        const parentPostId = parentPost.id
+
+        if (parentPostContent.includes(this.command)) {
             let messageContent = this.messages[Math.floor(Math.random() * this.messages.length)];
-            const params = { 'message': messageContent, thread: threadId, parent: parentMessageId }
+            const params = { 'message': messageContent, thread: threadId, parent: parentPostId }
             this.client.post('posts/create', params, (e, response) => {
                 if (e && e.statusCode == 400) {
-                    const params = { 'message': messageContent + " <b>", thread: threadId, parent: parentMessageId }
+                    const params = { 'message': messageContent + " <b>", thread: threadId, parent: parentPostId }
                     this.client.post('posts/create', params, (e, response) => {
                     });
                 }
